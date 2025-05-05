@@ -3,10 +3,9 @@ from flask_cors import CORS
 import pandas as pd
 import numpy as np
 import faiss
-from flask import Flask, request, jsonify, send_file
-import os
 from sentence_transformers import SentenceTransformer
 from transformers import pipeline
+import os
 
 # === Load CSV Data ===
 df = pd.read_csv("university_data.csv")
@@ -60,6 +59,10 @@ def university_chatbot(query):
 app = Flask(__name__)
 CORS(app)
 
+@app.route('/')
+def home():
+    return "✅ University Chatbot is running! Send a POST request to /chat"
+
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
@@ -69,10 +72,7 @@ def chat():
     answer, followups = university_chatbot(user_query)
     return jsonify({'response': answer, 'follow_up': followups})
 
+# === Render-Compatible Start ===
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-    app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return send_file('index.html')
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
