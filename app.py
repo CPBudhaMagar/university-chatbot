@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import pandas as pd
 import numpy as np
@@ -59,10 +59,12 @@ def university_chatbot(query):
 app = Flask(__name__)
 CORS(app)
 
+# === Serve Chat UI at '/' ===
 @app.route('/')
-def home():
-    return "✅ University Chatbot is running! Send a POST request to /chat"
+def serve_index():
+    return send_file("index.html")
 
+# === API Endpoint ===
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
