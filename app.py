@@ -3,6 +3,8 @@ from flask_cors import CORS
 import pandas as pd
 import numpy as np
 import faiss
+from flask import Flask, request, jsonify, send_file
+import os
 from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 
@@ -69,3 +71,8 @@ def chat():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+    app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return send_file('index.html')
