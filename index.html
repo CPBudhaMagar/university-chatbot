@@ -1,1 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>University Enquiry Chatbot</title>
+</head>
+<body>
+  <h1>🎓 University Chatbot</h1>
+  <textarea id="question" rows="4" cols="50" placeholder="Ask a question..."></textarea><br>
+  <button onclick="askChatbot()">Send</button>
+  <h3>Response:</h3>
+  <p id="response"></p>
+  <h3>Follow-ups:</h3>
+  <pre id="followups"></pre>
+
+  <script>
+    async function askChatbot() {
+      const question = document.getElementById("question").value;
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({message: question})
+      });
+      const data = await res.json();
+      document.getElementById("response").innerText = data.response || "No response.";
+      document.getElementById("followups").innerText = data.follow_up || "No suggestions.";
+    }
+  </script>
+</body>
+</html>
 
