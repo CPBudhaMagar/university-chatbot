@@ -1,8 +1,8 @@
 flask
 flask-cors
-gunicorn
-pandas
-numpy
 faiss-cpu
 sentence-transformers
 transformers
+pandas
+numpy
+gunicorn
