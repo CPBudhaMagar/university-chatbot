@@ -8,7 +8,7 @@ from transformers import pipeline
 import os
 
 # === Load CSV Data ===
-df = pd.read_csv("university_qa_1000.csv")
+df = pd.read_csv("university_data.csv")
 df.columns = [col.lower().strip() for col in df.columns]
 df = df.dropna(subset=['question', 'answer'])
 df['question'] = df['question'].astype(str).str.strip()
