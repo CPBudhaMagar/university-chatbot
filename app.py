@@ -31,7 +31,6 @@ qg_pipeline = pipeline("text2text-generation", model="google/flan-t5-base")
 # === Helper Functions ===
 SIMILARITY_THRESHOLD = 0.90
 
-
 def is_exact_match(query):
     vec = embed_model.encode([query])
     D, I = index.search(vec, 1)
@@ -40,7 +39,6 @@ def is_exact_match(query):
         idx = I[0][0]
         return True, questions[idx], answers[idx]
     return False, None, None
-
 
 def get_csv_matches(query, max_results=10):
     keyword = query.lower().strip()
@@ -51,7 +49,6 @@ def get_csv_matches(query, max_results=10):
         if len(matched) >= max_results:
             break
     return matched
-
 
 def generate_raqg_followups(matches):
     if not matches:
@@ -102,4 +99,5 @@ def home():
     return "✅ University Enquiry Chatbot API is running."
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
