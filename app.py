@@ -1,5 +1,4 @@
-# app.py — Flask Version for Render Deployment
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import pandas as pd
 import numpy as np
 import faiss
@@ -28,8 +27,8 @@ index.add(question_embeddings)
 # === Load FLAN-T5 Pipeline ===
 qg_pipeline = pipeline("text2text-generation", model="google/flan-t5-base")
 
-# === Helper Functions ===
 SIMILARITY_THRESHOLD = 0.90
+conversation_state = {"awaiting_more_info": False}
 
 def is_exact_match(query):
     vec = embed_model.encode([query])
@@ -63,9 +62,11 @@ def generate_raqg_followups(matches):
     followups = [line.strip() for line in lines if line.strip().startswith(tuple("123"))]
     return followups[:3] if followups else [result[0]['generated_text']]
 
-# === Flask App ===
-app = Flask(__name__)
-conversation_state = {"awaiting_more_info": False}
+app = Flask(__name__, template_folder='templates')
+
+@app.route('/')
+def home():
+    return render_template('index.html')
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -93,10 +94,6 @@ def chat():
         matches = get_csv_matches(user_input)
         followups = generate_raqg_followups(matches)
         return jsonify({"answer": "I couldn’t find an exact answer.", "follow_ups": followups})
-
-@app.route("/")
-def home():
-    return "✅ University Enquiry Chatbot API is running."
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
