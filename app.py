@@ -115,20 +115,27 @@ HTML = '''
             pointer-events: none;
         }
     </style>
-    <script>
-        function toggleDesignerInfo() {
-            const info = document.getElementById('designer-info');
-            info.style.display = (info.style.display === "none") ? "block" : "none";
-        }
-        window.onload = function () {
+   <script>
+    function toggleDesignerInfo() {
+        const info = document.getElementById('designer-info');
+        info.style.display = (info.style.display === "none") ? "block" : "none";
+    }
+
+    window.onload = function () {
+        if (!sessionStorage.getItem('welcomeShown')) {
             setTimeout(() => {
                 document.getElementById('welcome').classList.add('fade-out');
                 setTimeout(() => {
                     document.getElementById('welcome').style.display = 'none';
+                    sessionStorage.setItem('welcomeShown', 'true');
                 }, 1000);
             }, 2000);
+        } else {
+            document.getElementById('welcome').style.display = 'none';
         }
-    </script>
+    }
+</script>
+
 </head>
 <body>
     <div id="welcome">Welcome to the University of East London Chatbot
