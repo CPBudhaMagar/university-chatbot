@@ -1,100 +1,130 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, render_template_string
 import pandas as pd
-import numpy as np
-import faiss
-from sentence_transformers import SentenceTransformer
-from transformers import pipeline
-import os
+import re
 
-# === Load CSV Data ===
-df = pd.read_csv("university_data.csv")
-df.columns = [col.lower().strip() for col in df.columns]
-df = df.dropna(subset=['question', 'answer'])
+# === Load CSV ===
+df = pd.read_csv("university_qa_1000.csv")
 df['question'] = df['question'].astype(str).str.strip()
 df['answer'] = df['answer'].astype(str).str.strip()
-
 questions = df['question'].tolist()
 answers = df['answer'].tolist()
 
-# === Embed Questions and Build FAISS Index ===
-embed_model = SentenceTransformer('all-MiniLM-L6-v2')
-question_embeddings = embed_model.encode(questions)
-question_embeddings = np.array(question_embeddings).astype('float32')
+# === Initialize App ===
+app = Flask(__name__)
 
-index = faiss.IndexFlatL2(question_embeddings.shape[1])
-index.add(question_embeddings)
+# === Text Normalizer ===
+def normalize(text):
+    return re.sub(r'[^\w\s]', '', text.strip().lower())
 
-# === Load FLAN-T5 Pipeline ===
-qg_pipeline = pipeline("text2text-generation", model="google/flan-t5-base")
-
-SIMILARITY_THRESHOLD = 0.90
-conversation_state = {"awaiting_more_info": False}
-
+# === Exact Match Function ===
 def is_exact_match(query):
-    vec = embed_model.encode([query])
-    D, I = index.search(vec, 1)
-    score = 1 - (D[0][0] / 2)
-    if score >= SIMILARITY_THRESHOLD:
-        idx = I[0][0]
-        return True, questions[idx], answers[idx]
-    return False, None, None
+    nq = normalize(query)
+    for i, q in enumerate(questions):
+        if normalize(q) == nq:
+            return True, answers[i]
+    return False, None
 
-def get_csv_matches(query, max_results=10):
-    keyword = query.lower().strip()
-    matched = []
+# === Related Questions (Substring Matching) ===
+def get_related_questions(query, limit=10):
+    keywords = normalize(query).split()
+    related = []
+    seen = set()
     for q in questions:
-        if keyword in q.lower() and q not in matched:
-            matched.append(q)
-        if len(matched) >= max_results:
-            break
-    return matched
+        q_norm = normalize(q)
+        if any(k in q_norm for k in keywords) and q not in seen:
+            related.append(q)
+            seen.add(q)
+    return related[:limit]
 
-def generate_raqg_followups(matches):
-    if not matches:
-        return ["Sorry, no related content found to generate questions."]
-    context = "\n".join(matches)
-    prompt = (
-        "Generate 3 helpful and distinct follow-up questions based on the following questions:\n"
-        f"{context}\n\nList them as:\n1."
-    )
-    result = qg_pipeline(prompt, max_length=120, do_sample=False)
-    lines = result[0]['generated_text'].strip().split("\n")
-    followups = [line.strip() for line in lines if line.strip().startswith(tuple("123"))]
-    return followups[:3] if followups else [result[0]['generated_text']]
+# === Bootstrap-based Frontend ===
+HTML = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>University Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f4f6f9;
+            font-family: 'Segoe UI', sans-serif;
+            padding-top: 50px;
+        }
+        .container {
+            max-width: 600px;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        .chat-title {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #2c3e50;
+        }
+        .form-control {
+            font-size: 18px;
+        }
+        .response, .suggestions {
+            margin-top: 20px;
+        }
+        .suggestions ul {
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-title">🎓 University Chatbot</div>
+        <form method="post">
+            <div class="mb-3">
+                <input name="query" class="form-control" placeholder="Ask your question..." required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Ask</button>
+        </form>
 
-app = Flask(__name__, template_folder='templates')
+        {% if response %}
+        <div class="response alert alert-success mt-4">
+            <strong>🤖 Bot:</strong> {{ response }}
+        </div>
+        {% endif %}
 
-@app.route('/')
+        {% if suggestions %}
+        <div class="suggestions alert alert-info">
+            <strong>Related questions you might be looking for:</strong>
+            <ul>
+                {% for q in suggestions %}
+                <li>{{ q }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="text-center mt-4">
+        <small class="text-muted">created by cp</small>
+    </div>
+</body>
+</html>
+'''
+
+# === Route ===
+@app.route("/", methods=["GET", "POST"])
 def home():
-    return render_template('index.html')
-
-@app.route("/chat", methods=["POST"])
-def chat():
-    user_input = request.json.get("message", "").strip()
-    global conversation_state
-
-    if conversation_state["awaiting_more_info"]:
-        conversation_state["awaiting_more_info"] = False
-        match, q, a = is_exact_match(user_input)
+    response = ""
+    suggestions = []
+    if request.method == "POST":
+        query = request.form["query"]
+        match, answer = is_exact_match(query)
         if match:
-            return jsonify({"answer": a})
+            response = answer + " Would you like to ask another question?"
         else:
-            matches = get_csv_matches(user_input)
-            followups = generate_raqg_followups(matches)
-            return jsonify({"answer": "I couldn't find an exact answer.", "follow_ups": followups})
+            response = "I couldn’t find an exact answer."
+            suggestions = get_related_questions(query)
+    return render_template_string(HTML, response=response, suggestions=suggestions)
 
-    match, q, a = is_exact_match(user_input)
-    if match:
-        conversation_state["awaiting_more_info"] = True
-        return jsonify({
-            "answer": a,
-            "follow_up": "Would you like to know more about us?"
-        })
-    else:
-        matches = get_csv_matches(user_input)
-        followups = generate_raqg_followups(matches)
-        return jsonify({"answer": "I couldn’t find an exact answer.", "follow_ups": followups})
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+# === Run App ===
+if __name__ == "__main__":
+    app.run(debug=False, host="0.0.0.0", port=5000)
