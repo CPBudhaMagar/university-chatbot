@@ -3,4 +3,4 @@ services:
     name: university-chatbot
     env: python
     buildCommand: ""
-    startCommand: python app.py
+    startCommand: python3 app.py
