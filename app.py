@@ -3,7 +3,7 @@ import pandas as pd
 import re
 
 # === Load CSV ===
-df = pd.read_csv("university_qa_1000.csv")
+df = pd.read_csv("university_data.csv")
 df['question'] = df['question'].astype(str).str.strip()
 df['answer'] = df['answer'].astype(str).str.strip()
 questions = df['question'].tolist()
