@@ -2,8 +2,5 @@ services:
   - type: web
     name: university-chatbot
     env: python
-    region: oregon
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
-    plan: free
-
+    buildCommand: ""
+    startCommand: python app.py
